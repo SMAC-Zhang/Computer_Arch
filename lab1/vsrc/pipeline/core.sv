@@ -15,7 +15,6 @@
 
 `endif
 
-
 module core 
 	import common::*;
     import pipes::*;(
