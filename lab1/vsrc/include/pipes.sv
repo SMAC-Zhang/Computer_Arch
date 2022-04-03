@@ -103,6 +103,7 @@ typedef struct packed {
 typedef struct packed {
     control_t ctl;
     u64 src1, src2;
+    creg_addr_t ra1, ra2;
     creg_addr_t rd;
     u64 sext_imm;
     u32 raw_instr;

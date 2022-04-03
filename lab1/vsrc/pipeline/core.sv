@@ -11,7 +11,7 @@
 `include "pipeline/memory/memory.sv"
 `include "pipeline/writeback/writeback.sv"
 `include "pipeline/forward.sv"
-`include "pipeline/bubble.sv"
+`include "pipeline/stall.sv"
 
 `else
 
@@ -30,14 +30,16 @@ module core
 
 	logic branch;
     logic flush;
+    logic bubble;
 	addr_t branch_target;
 	data_fetch_t data_f;
 	data_fetch_t data_f_nxt;
     data_decode_t data_d;
 	data_decode_t data_d_nxt;
 	creg_addr_t ra1, ra2;
-    u64 rd1, rd2;
     u64 src1, src2;
+    u64 srca, srcb;
+    u64 rd1, rd2;
     data_execute_t data_e;
 	data_execute_t data_e_nxt;
     data_writeback_t data_w;
@@ -47,6 +49,7 @@ module core
 		.clk,
 		.reset,
         .flush,
+        .bubble,
 		.branch,
 		.branch_target,
 		.ireq,
@@ -55,12 +58,14 @@ module core
 	);
 
 	always_ff @(posedge clk) begin
-		if(reset | branch) begin
-			data_f <= '0;
-		end
-		else if(~flush) begin
-			data_f <= data_f_nxt;
-		end
+        if ((~flush) && (~bubble)) begin
+            if(reset | branch) begin
+                data_f <= '0;
+            end
+            else begin
+                data_f <= data_f_nxt;
+            end
+        end
 	end
 
 	decode decode(
@@ -75,40 +80,49 @@ module core
 	);
 
 	always_ff @(posedge clk) begin
-		if(reset | flush) begin
-			data_d <= '0;
-		end
-		else begin
-			data_d <= data_d_nxt;
-		end
+        if(~flush) begin
+            if(reset | bubble) begin
+                data_d <= '0;
+            end
+            else begin
+                data_d <= data_d_nxt;
+            end
+        end
 	end
 
-    bubble bubble(
-        .data_e(data_e_nxt),
+    stall stall(
+        .data_e,
+        .data_d,
+        .flush,
         .ra1,
         .ra2,
-        .flush
+        .bubble,
+        .op(data_d_nxt.ctl.op)
     );
 
     forward forward(
-        .ra1,
-        .ra2,
         .rd1,
         .rd2,
         .src1,
         .src2,
-        .data_e(data_e_nxt),
-        .data_m(data_m_nxt),
-        .data_w(data_w)
+        .srca,
+        .srcb,
+        .ra1,
+        .ra2,
+        .data_d,
+        .data_e,
+        .data_m
     );
 
 	execute execute(
 		.data_d,
+        .src1(srca),
+        .src2(srcb),
 		.data_e(data_e_nxt)
 	);
 	
 	always_ff @(posedge clk) begin
-		if(reset) begin
+		if(reset | flush) begin
 			data_e <= '0;
 		end
 		else begin
