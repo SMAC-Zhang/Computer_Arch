@@ -13,11 +13,13 @@ module execute
 	import common::*;
 	import pipes::*;(
     input  data_decode_t data_d,
+    input u64 src1, src2,
     output data_execute_t data_e
 );
 
     u64 srca, srcb;
-    assign srca = data_d.src1;
+    assign srca = src1;
+
     alu alu(
         .a      (srca),
         .b      (srcb),
@@ -28,24 +30,19 @@ module execute
     assign data_e.reg_write = data_d.ctl.reg_write;
     assign data_e.mem_to_reg = data_d.ctl.mem_to_reg;
     assign data_e.mem_write = data_d.ctl.mem_write;
-    assign data_e.write_data = data_d.src2;
+    assign data_e.write_data = src2;
     assign data_e.write_reg = data_d.rd;
     assign data_e.pc_now = data_d.pc_now;
     assign data_e.raw_instr = data_d.raw_instr; 
     assign data_e.valid = data_d.valid;
 
     always_comb begin
-        unique case(data_d.ctl.alusrc)
-            1'b0: begin
-                srcb = data_d.src2;
-            end
-            1'b1: begin
-                srcb = data_d.sext_imm;
-            end
-            default: begin
-                srcb = '0;
-            end
-        endcase
+        if(data_d.ctl.alusrc) begin
+            srcb = data_d.sext_imm;
+        end
+        else begin
+            srcb = src2;
+        end
     end
 
 endmodule

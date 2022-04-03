@@ -14,8 +14,8 @@ module decode
 	import pipes::*;(
     //input  logic clk,
     input  data_fetch_t data_f,
-    input  u64 src1, src2,
     output creg_addr_t ra1, ra2,
+    input u64 src1, src2,
     output data_decode_t data_d,
     output addr_t branch_target,
     output logic branch
@@ -28,11 +28,13 @@ module decode
     assign data_d.raw_instr = data_f.raw_instr;
     assign data_d.pc_now = data_f.pc_now;
     assign data_d.valid = data_f.valid;
-    assign data_d.src1 = src1;
-    assign data_d.src2 = src2;
     assign data_d.rd = data_f.raw_instr[11:7];
     assign ra1 = data_f.raw_instr[19:15];
     assign ra2 = data_f.raw_instr[24:20];
+    assign data_d.ra1 = data_f.raw_instr[19:15];
+    assign data_d.ra2 = data_f.raw_instr[24:20];
+    assign data_d.src1 = src1;
+    assign data_d.src2 = src2;
 
     control_t ctl;
     assign data_d.ctl = ctl;
@@ -43,14 +45,16 @@ module decode
     );
 
     always_comb begin
-        branch = '0;
         data_d.sext_imm = '0;
+        branch = '0;
+        branch_target = '0;
         unique case(ctl.op)
             OP_ADDI: begin
                 data_d.sext_imm = {
                     {52{data_f.raw_instr[31]}},
                     data_f.raw_instr[31:20]
                 };
+                // $display("%x\n", data_d.src1); 
             end
             OP_XORI: begin
                 data_d.sext_imm = {
@@ -90,7 +94,7 @@ module decode
                 }; 
             end
             OP_BEQ: begin
-                if(src1 == src2) begin
+                if(data_d.src1 == data_d.src2) begin
                     branch = 1'b1;
                     branch_target = data_f.pc_now + {
                         {51{data_f.raw_instr[31]}},
@@ -100,6 +104,9 @@ module decode
                         data_f.raw_instr[11:8],
                         1'b0
                     };
+                end
+                else begin
+                    branch = 1'b0;
                 end
             end
             OP_LD: begin
@@ -135,13 +142,14 @@ module decode
             OP_JALR: begin
                 branch = 1'b1;
                 data_d.sext_imm = data_f.pc_now + 4;
-                branch_target = (src1 + {
+                branch_target = (data_d.src1 + {
                     {52{data_f.raw_instr[31]}},
                     data_f.raw_instr[31:20]}) & ~1;
             end
             default: begin
                 data_d.sext_imm = '0;
                 branch = '0;
+                branch_target = '0;
             end
         endcase
     end

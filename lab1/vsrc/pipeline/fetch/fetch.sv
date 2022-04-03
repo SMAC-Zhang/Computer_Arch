@@ -14,6 +14,7 @@ module fetch
     input logic clk, reset,
     input logic branch,
     input logic flush,
+    input logic bubble,
     input addr_t branch_target,
     output ibus_req_t  ireq,
 	input  ibus_resp_t iresp,
@@ -25,22 +26,25 @@ module fetch
         if(branch) begin
             pc_nxt = branch_target;
         end 
-        else if(~flush)begin
+        else begin
             pc_nxt = pc_now + 4;
         end
     end
 
     always_ff @(posedge clk) begin
-        if(reset) begin
-            pc_now <= 64'h8000_0000;
-        end
-        else if(~flush)begin
-            pc_now <= pc_nxt;
+        if (~flush & ~bubble) begin
+            if(reset) begin
+                pc_now <= 64'h8000_0000;
+            end
+            else begin
+                pc_now <= pc_nxt;
+            end
         end
     end
 
     assign ireq.addr = pc_now;
-    assign data_f.pc_now = ireq.addr;
+    //assign ireq.valid = 1'b1;
+    assign data_f.pc_now = pc_now;
     assign data_f.valid = 1'b1;
     assign data_f.raw_instr = iresp.data;
 
